@@ -71,22 +71,31 @@
   </style>
 </head>
 <body>
-  <h1>Medication + Vitals Tracker</h1>
+  <div class="row" style="justify-content: space-between; align-items: baseline;">
+    <h1 id="pageTitle">Medication + Vitals Tracker</h1>
+    <label class="muted" style="display:inline-flex; align-items:center; gap:8px;">
+      <span id="langLabel">Language</span>
+      <select id="langSel">
+        <option value="zh" selected>中文</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+  </div>
   <div class="sub" aria-hidden="true"></div>
 
   <div class="grid">
     <div class="card">
       <div class="row" style="justify-content: space-between;">
         <div>
-          <div class="muted">Medication schedule</div>
-          <div class="muted">Colors: <span class="pill ok">OK</span> <span class="pill soon">DUE SOON</span> <span class="pill due">DUE NOW</span> <span class="pill over">OVERDUE</span></div>
+          <div class="muted" id="medScheduleTitle">Medication schedule</div>
+          <div class="muted" id="colorLegend">Colors: <span class="pill ok">OK</span> <span class="pill soon">DUE SOON</span> <span class="pill due">DUE NOW</span> <span class="pill over">OVERDUE</span></div>
         </div>
         <div class="row">
-          <label class="muted">Due soon window:
+          <label class="muted"><span id="soonWindowLabel">Due soon window</span>:
             <select id="soonWindow">
-              <option value="15">15 min</option>
-              <option value="30" selected>30 min</option>
-              <option value="60">60 min</option>
+              <option value="15" id="soon15">15 min</option>
+              <option value="30" selected id="soon30">30 min</option>
+              <option value="60" id="soon60">60 min</option>
             </select>
           </label>
           <button class="small" id="refreshBtn">Refresh</button>
@@ -97,13 +106,13 @@
         <table id="medTable">
           <thead>
             <tr>
-              <th>Medicine</th>
-              <th class="nowrap">Each time</th>
-              <th class="nowrap">Every</th>
-              <th class="nowrap">Last taken</th>
-              <th class="nowrap">Next dose</th>
-              <th>Status</th>
-              <th class="right">Actions</th>
+              <th id="thMedicine">Medicine</th>
+              <th class="nowrap" id="thEachTime">Each time</th>
+              <th class="nowrap" id="thEvery">Every</th>
+              <th class="nowrap" id="thLastTaken">Last taken</th>
+              <th class="nowrap" id="thNextDose">Next dose</th>
+              <th id="thStatus">Status</th>
+              <th class="right" id="thActions">Actions</th>
             </tr>
           </thead>
           <tbody><!-- injected --></tbody>
@@ -114,44 +123,44 @@
         <button id="resetAllBtn" class="small">Reset all</button>
         <button id="exportBtn" class="small">Export JSON</button>
         <label class="small" style="display:inline-flex; align-items:center; gap:8px;">
-          Import JSON
+          <span id="importLabel">Import JSON</span>
           <input id="importFile" type="file" accept="application/json" />
         </label>
       </div>
 
       <div class="footer">
-        Tip: When you take a medicine, click <b>Take now</b> — it stores the exact timestamp and calculates the next dose.
+        <span id="tipText">Tip: When you take a medicine, click <b>Take now</b> — it stores the exact timestamp and calculates the next dose.</span>
       </div>
     </div>
 
     <div class="card">
-      <div class="muted">Vitals (Temperature + Heart Rate)</div>
+      <div class="muted" id="vitalsTitle">Vitals (Temperature + Heart Rate)</div>
 
       <div class="row" style="margin-top: 10px;">
-        <label>Time
+        <label><span id="vitalsTimeLabel">Time</span>
           <input id="vitalsTimeInput" class="dtInput" type="text" placeholder="YYYY-MM-DD HH:MM" />
         </label>
-        <label>Temp (°C)
+        <label><span id="tempLabel">Temp</span> (°C)
           <input id="tempInput" type="number" step="0.1" placeholder="37.2" />
         </label>
-        <label>Heart rate (bpm)
+        <label><span id="hrLabel">Heart rate</span> (bpm)
           <input id="hrInput" type="number" step="1" placeholder="88" />
         </label>
         <button id="addVitalsBtn" class="primary">Add</button>
       </div>
 
       <div class="muted" style="margin-top: 8px;">
-        Enter Temp and/or HR. If you enter both, they are saved as two separate items at the same time.
+        <span id="vitalsHelp">Enter Temp and/or HR. If you enter both, they are saved as two separate items at the same time.</span>
       </div>
 
       <div style="overflow:auto; margin-top: 10px;">
         <table id="vitalsTable">
           <thead>
             <tr>
-              <th class="nowrap">Time</th>
-              <th class="nowrap">Temp (°C)</th>
-              <th class="nowrap">HR (bpm)</th>
-              <th class="right">Actions</th>
+              <th class="nowrap" id="thVitalsTime">Time</th>
+              <th class="nowrap" id="thVitalsTemp">Temp (°C)</th>
+              <th class="nowrap" id="thVitalsHr">HR (bpm)</th>
+              <th class="right" id="thVitalsActions">Actions</th>
             </tr>
           </thead>
           <tbody><!-- injected --></tbody>
@@ -159,13 +168,13 @@
       </div>
 
       <div style="margin-top: 14px; border-top: 1px solid rgba(127,127,127,.25); padding-top: 14px;">
-        <div class="muted">Notes (standalone timeline)</div>
+        <div class="muted" id="notesTitle">Notes (standalone timeline)</div>
 
         <div class="row" style="margin-top: 10px; align-items: flex-start;">
-          <label>Time
+          <label><span id="notesTimeLabel">Time</span>
             <input id="notesTimeInput" class="dtInput" type="text" placeholder="YYYY-MM-DD HH:MM" />
           </label>
-          <label style="flex: 1 1 320px;">How I feel
+          <label style="flex: 1 1 320px;"><span id="notesFeelLabel">How I feel</span>
             <textarea id="notesTextInput" placeholder="e.g., sore throat improving, mild headache, tired"></textarea>
           </label>
           <button id="addNoteBtn" class="primary">Add note</button>
@@ -181,6 +190,222 @@
   </div>
 
 <script>
+  // --------- UI LANGUAGE ----------
+  const UI_LS_KEY = "med_tracker_ui_v1";
+  const I18N = {
+    zh: {
+      pageTitle: "用药与体征记录",
+      langLabel: "语言",
+
+      medScheduleTitle: "用药计划",
+      colorLegendHtml: `颜色： <span class="pill ok">正常</span> <span class="pill soon">即将到点</span> <span class="pill due">到点</span> <span class="pill over">已超时</span>`,
+      soonWindowLabel: "即将到点窗口",
+      soon15: "15 分钟",
+      soon30: "30 分钟",
+      soon60: "60 分钟",
+      refresh: "刷新",
+
+      thMedicine: "药品",
+      thEachTime: "每次",
+      thEvery: "间隔",
+      thLastTaken: "上次服用",
+      thNextDose: "下次服用",
+      thStatus: "状态",
+      thActions: "操作",
+
+      resetAll: "全部重置",
+      exportJson: "导出 JSON",
+      importJson: "导入 JSON",
+
+      tipHtml: `提示：服药后点击 <b>现在服用</b>，系统会记录时间并计算下次服用。`,
+
+      takeNow: "现在服用",
+      setTime: "设置时间",
+
+      vitalsTitle: "体征（体温 + 心率）",
+      time: "时间",
+      temp: "体温",
+      hr: "心率",
+      add: "添加",
+      vitalsHelp: "输入体温和/或心率；如果两者都输入，会在同一时间保存为两条记录。",
+
+      thVitalsTime: "时间",
+      thVitalsTemp: "体温 (°C)",
+      thVitalsHr: "心率 (bpm)",
+      thVitalsActions: "操作",
+
+      notesTitle: "感受记录",
+      howIFeel: "我的感受",
+      addNote: "添加备注",
+      notesPlaceholder: "例如：喉咙痛减轻、轻微头痛、疲惫",
+
+      delete: "删除",
+
+      status_ok: "正常",
+      status_soon: "即将到点",
+      status_due: "到点",
+      status_over: "已超时",
+
+      alertEnterVitals: "请先输入体温和/或心率。",
+      alertEnterNote: "请先输入备注内容。",
+      alertInvalidTime: "时间格式不正确。",
+      alertPiecesPositive: "每次用量必须是大于 0 的数字。",
+      resetConfirm: "重置所有用药 + 体征 + 备注？这会清除本地数据。",
+      imported: "已导入！",
+      importFailed: "导入失败。请确认是从本页面导出的 JSON 文件。",
+      timeHintFull: "YYYY-MM-DD HH:MM",
+      timeHintShort: "MM-DD HH:MM（或 YYYY-MM-DD HH:MM）",
+      promptSetLastTaken: "设置 {name} 的上次服用时间（格式：{fmt}）\n示例：{ex}"
+    },
+    en: {
+      pageTitle: "Medication + Vitals Tracker",
+      langLabel: "Language",
+
+      medScheduleTitle: "Medication schedule",
+      colorLegendHtml: `Colors: <span class="pill ok">OK</span> <span class="pill soon">DUE SOON</span> <span class="pill due">DUE NOW</span> <span class="pill over">OVERDUE</span>`,
+      soonWindowLabel: "Due soon window",
+      soon15: "15 min",
+      soon30: "30 min",
+      soon60: "60 min",
+      refresh: "Refresh",
+
+      thMedicine: "Medicine",
+      thEachTime: "Each time",
+      thEvery: "Every",
+      thLastTaken: "Last taken",
+      thNextDose: "Next dose",
+      thStatus: "Status",
+      thActions: "Actions",
+
+      resetAll: "Reset all",
+      exportJson: "Export JSON",
+      importJson: "Import JSON",
+
+      tipHtml: `Tip: When you take a medicine, click <b>Take now</b> — it stores the timestamp and calculates the next dose.`,
+
+      takeNow: "Take now",
+      setTime: "Set time",
+
+      vitalsTitle: "Vitals (Temperature + Heart Rate)",
+      time: "Time",
+      temp: "Temp",
+      hr: "Heart rate",
+      add: "Add",
+      vitalsHelp: "Enter Temp and/or HR. If you enter both, they are saved as two separate items at the same time.",
+
+      thVitalsTime: "Time",
+      thVitalsTemp: "Temp (°C)",
+      thVitalsHr: "HR (bpm)",
+      thVitalsActions: "Actions",
+
+      notesTitle: "Notes (standalone timeline)",
+      howIFeel: "How I feel",
+      addNote: "Add note",
+      notesPlaceholder: "e.g., sore throat improving, mild headache, tired",
+
+      delete: "Delete",
+
+      status_ok: "OK",
+      status_soon: "DUE SOON",
+      status_due: "DUE NOW",
+      status_over: "OVERDUE",
+
+      alertEnterVitals: "Enter Temperature and/or Heart Rate first.",
+      alertEnterNote: "Enter a note first.",
+      alertInvalidTime: "Invalid date/time.",
+      alertPiecesPositive: "Pieces must be a positive number.",
+      resetConfirm: "Reset ALL meds + vitals + notes? This clears local data.",
+      imported: "Imported!",
+      importFailed: "Import failed. Make sure it's a JSON file exported from this page.",
+      timeHintFull: "YYYY-MM-DD HH:MM",
+      timeHintShort: "MM-DD HH:MM (or YYYY-MM-DD HH:MM)",
+      promptSetLastTaken: "Set LAST TAKEN time for {name} (format: {fmt})\nExample: {ex}"
+    }
+  };
+
+  function loadUi() {
+    try {
+      const raw = localStorage.getItem(UI_LS_KEY);
+      if (!raw) return { lang: "zh" };
+      const parsed = JSON.parse(raw);
+      return { lang: parsed?.lang === "en" ? "en" : "zh" };
+    } catch (_) {
+      return { lang: "zh" };
+    }
+  }
+
+  function saveUi(ui) {
+    localStorage.setItem(UI_LS_KEY, JSON.stringify(ui));
+  }
+
+  let ui = loadUi();
+
+  function t(key, vars) {
+    const dict = I18N[ui.lang] || I18N.en;
+    let s = dict[key] ?? I18N.en[key] ?? key;
+    if (vars && typeof s === "string") {
+      for (const [k, v] of Object.entries(vars)) {
+        s = s.replaceAll(`{${k}}`, String(v));
+      }
+    }
+    return s;
+  }
+
+  function applyI18n() {
+    document.documentElement.lang = ui.lang === "zh" ? "zh-CN" : "en";
+
+    const setText = (id, key) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = t(key);
+    };
+    const setHtml = (id, key) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = t(key);
+    };
+
+    setText("pageTitle", "pageTitle");
+    setText("langLabel", "langLabel");
+    setText("medScheduleTitle", "medScheduleTitle");
+    setHtml("colorLegend", "colorLegendHtml");
+    setText("soonWindowLabel", "soonWindowLabel");
+    setText("soon15", "soon15");
+    setText("soon30", "soon30");
+    setText("soon60", "soon60");
+
+    document.getElementById("refreshBtn").textContent = t("refresh");
+    document.getElementById("resetAllBtn").textContent = t("resetAll");
+    document.getElementById("exportBtn").textContent = t("exportJson");
+    setText("importLabel", "importJson");
+    setHtml("tipText", "tipHtml");
+
+    setText("thMedicine", "thMedicine");
+    setText("thEachTime", "thEachTime");
+    setText("thEvery", "thEvery");
+    setText("thLastTaken", "thLastTaken");
+    setText("thNextDose", "thNextDose");
+    setText("thStatus", "thStatus");
+    setText("thActions", "thActions");
+
+    setText("vitalsTitle", "vitalsTitle");
+    setText("vitalsTimeLabel", "time");
+    setText("tempLabel", "temp");
+    setText("hrLabel", "hr");
+    document.getElementById("addVitalsBtn").textContent = t("add");
+    setText("vitalsHelp", "vitalsHelp");
+
+    setText("thVitalsTime", "thVitalsTime");
+    setText("thVitalsTemp", "thVitalsTemp");
+    setText("thVitalsHr", "thVitalsHr");
+    setText("thVitalsActions", "thVitalsActions");
+
+    setText("notesTitle", "notesTitle");
+    setText("notesTimeLabel", "time");
+    setText("notesFeelLabel", "howIFeel");
+    document.getElementById("addNoteBtn").textContent = t("addNote");
+    const notesText = document.getElementById("notesTextInput");
+    if (notesText) notesText.placeholder = t("notesPlaceholder");
+  }
+
   // --------- CONFIG (rename meds here if you want) ----------
   const DEFAULT_MEDS = [
     {
@@ -421,15 +646,15 @@
   }
 
   function computeStatus(nextMs, soonMinutes) {
-    if (!Number.isFinite(nextMs)) return { label: "—", cls: "" };
+    if (!Number.isFinite(nextMs)) return { code: "", cls: "" };
 
     const t = nowMs();
     const diff = nextMs - t; // ms
 
-    if (diff <= -60 * 1000) return { label: "OVERDUE", cls: "over" }; // 1 min grace
-    if (diff <= 0) return { label: "DUE NOW", cls: "due" };
-    if (diff <= soonMinutes * 60 * 1000) return { label: "DUE SOON", cls: "soon" };
-    return { label: "OK", cls: "ok" };
+    if (diff <= -60 * 1000) return { code: "over", cls: "over" }; // 1 min grace
+    if (diff <= 0) return { code: "due", cls: "due" };
+    if (diff <= soonMinutes * 60 * 1000) return { code: "soon", cls: "soon" };
+    return { code: "ok", cls: "ok" };
   }
 
   // --------- RENDER MEDS ----------
@@ -491,18 +716,18 @@
       tdNext.textContent = Number.isFinite(nextMs) ? msToPretty(nextMs) : "—";
 
       const tdStatus = document.createElement("td");
-      if (status.label === "—") {
+      if (!status.code) {
         tdStatus.innerHTML = `<span class="pill">—</span>`;
       } else {
-        tdStatus.innerHTML = `<span class="pill ${status.cls}">${status.label}</span>`;
+        tdStatus.innerHTML = `<span class="pill ${status.cls}">${escapeHtml(t(`status_${status.code}`))}</span>`;
       }
 
       const tdActions = document.createElement("td");
       tdActions.className = "right";
       tdActions.innerHTML = `
         <div class="row" style="justify-content:flex-end;">
-          <button class="small primary" data-act="takeNow" data-id="${med.id}">Take now</button>
-          <button class="small" data-act="editTime" data-id="${med.id}">Set time</button>
+          <button class="small primary" data-act="takeNow" data-id="${med.id}">${escapeHtml(t("takeNow"))}</button>
+          <button class="small" data-act="editTime" data-id="${med.id}">${escapeHtml(t("setTime"))}</button>
         </div>
       `;
 
@@ -537,15 +762,14 @@
     if (act === "editTime") {
       const currentMs = isoToMs(med.lastTakenISO);
       const preset = Number.isFinite(currentMs) ? msToLocalSpaceInput(currentMs) : msToLocalSpaceInput(nowMs());
-      const input = prompt(
-        `Set LAST TAKEN time for ${med.name} (format: YYYY-MM-DD HH:MM)\nExample: 2026-02-13 09:20`,
-        preset
-      );
+      const fmt = inputOmitYear ? t("timeHintShort") : t("timeHintFull");
+      const ex = inputOmitYear ? "02-13 09:20" : "2026-02-13 09:20";
+      const input = prompt(t("promptSetLastTaken", { name: med.name, fmt, ex }), preset);
       if (!input) return;
 
       const dt = parseLocalDateTime(input);
       if (!dt) {
-        alert("Invalid date/time. Use format YYYY-MM-DD HH:MM");
+        alert(`${t("alertInvalidTime")} ${t("timeHintShort")}`);
         return;
       }
       med.lastTakenISO = dt.toISOString();
@@ -573,7 +797,7 @@
 
     const n = Number(raw);
     if (!Number.isFinite(n) || n <= 0) {
-      alert("Pieces must be a positive number.");
+      alert(t("alertPiecesPositive"));
       el.value = String(med.dosePieces ?? "");
       return;
     }
@@ -626,7 +850,7 @@
 
         const tdAct = document.createElement("td");
         tdAct.className = "right";
-        tdAct.innerHTML = `<button class="small" data-act="delVital" data-id="${v.id}">Delete</button>`;
+        tdAct.innerHTML = `<button class="small" data-act="delVital" data-id="${v.id}">${escapeHtml(t("delete"))}</button>`;
 
         tr.appendChild(tdTime);
         tr.appendChild(tdTemp);
@@ -662,7 +886,7 @@
     const hr = hrInput.value.trim();
 
     if (!temp && !hr) {
-      alert("Enter Temperature and/or Heart Rate first.");
+      alert(t("alertEnterVitals"));
       return;
     }
 
@@ -714,7 +938,7 @@
 
         const tdAct = document.createElement("td");
         tdAct.className = "right";
-        tdAct.innerHTML = `<button class="small" data-act="delNote" data-id="${n.id}">Delete</button>`;
+        tdAct.innerHTML = `<button class="small" data-act="delNote" data-id="${n.id}">${escapeHtml(t("delete"))}</button>`;
 
         tr.appendChild(tdTime);
         tr.appendChild(tdText);
@@ -727,7 +951,7 @@
   document.getElementById("addNoteBtn").addEventListener("click", () => {
     const text = notesTextInput.value.trim();
     if (!text) {
-      alert("Enter a note first.");
+      alert(t("alertEnterNote"));
       return;
     }
 
@@ -763,7 +987,7 @@
 
   // --------- EXPORT / IMPORT / RESET ----------
   document.getElementById("resetAllBtn").addEventListener("click", () => {
-    if (!confirm("Reset ALL meds + vitals? This clears local data.")) return;
+    if (!confirm(t("resetConfirm"))) return;
     state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:"", lastTakenPieces:""})), vitals: [], notes: [] };
     saveState(state);
     updateYearModes();
@@ -820,9 +1044,9 @@
       syncTimeInputUI(notesTimeInput);
       notesTextInput.value = "";
       renderAll();
-      alert("Imported!");
+      alert(t("imported"));
     } catch (err) {
-      alert("Import failed. Make sure it's a JSON file exported from this page.");
+      alert(t("importFailed"));
     } finally {
       e.target.value = "";
     }
