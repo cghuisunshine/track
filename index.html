@@ -804,10 +804,17 @@
       const parsed = JSON.parse(text);
       // Minimal validation + merge with DEFAULT_MEDS
       const medsById = new Map((parsed.meds || []).map(m => [m.id, m]));
-      state.meds = DEFAULT_MEDS.map(m => ({
-        ...m,
-        lastTakenISO: medsById.get(m.id)?.lastTakenISO || ""
-      }));
+      state.meds = DEFAULT_MEDS.map(m => {
+        const saved = medsById.get(m.id) || {};
+        const savedDosePieces = Number(saved.dosePieces);
+        const dosePieces = Number.isFinite(savedDosePieces) && savedDosePieces > 0 ? savedDosePieces : m.dosePieces;
+        return {
+          ...m,
+          dosePieces,
+          lastTakenISO: saved.lastTakenISO || "",
+          lastTakenPieces: saved.lastTakenPieces ?? ""
+        };
+      });
       const v = ensureVitalIds(Array.isArray(parsed.vitals) ? parsed.vitals : []);
       const n = ensureNoteIds(Array.isArray(parsed.notes) ? parsed.notes : []);
       state.vitals = v.vitals;
