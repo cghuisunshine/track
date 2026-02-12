@@ -21,6 +21,9 @@
     th { text-align: left; font-weight: 650; font-size: 12px; opacity: .85; }
     td { font-size: 14px; }
 
+    .cellMain { display: block; }
+    .cellSub { display: block; margin-top: 4px; }
+
     button, input, select {
       border: 1px solid rgba(127,127,127,.35);
       border-radius: 10px;
@@ -43,8 +46,9 @@
     button { cursor: pointer; }
     button.primary { font-weight: 650; }
     button.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; }
+    input.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; width: 70px; }
     input[type="number"] { width: 110px; }
-    input[type="datetime-local"] { min-width: 210px; }
+    .dtInput { min-width: 210px; }
 
     .pill {
       display: inline-flex; align-items: center; gap: 8px;
@@ -68,7 +72,7 @@
 </head>
 <body>
   <h1>Medication + Vitals Tracker</h1>
-  <div class="sub">Static page • saves to your browser (localStorage) • GitHub Pages-ready</div>
+  <div class="sub" aria-hidden="true"></div>
 
   <div class="grid">
     <div class="card">
@@ -94,6 +98,7 @@
           <thead>
             <tr>
               <th>Medicine</th>
+              <th class="nowrap">Each time</th>
               <th class="nowrap">Every</th>
               <th class="nowrap">Last taken</th>
               <th class="nowrap">Next dose</th>
@@ -124,7 +129,7 @@
 
       <div class="row" style="margin-top: 10px;">
         <label>Time
-          <input id="vitalsTimeInput" type="datetime-local" />
+          <input id="vitalsTimeInput" class="dtInput" type="text" placeholder="YYYY-MM-DD HH:MM" />
         </label>
         <label>Temp (°C)
           <input id="tempInput" type="number" step="0.1" placeholder="37.2" />
@@ -132,11 +137,11 @@
         <label>Heart rate (bpm)
           <input id="hrInput" type="number" step="1" placeholder="88" />
         </label>
-        <button id="addVitalsBtn" class="primary">Add entry</button>
+        <button id="addVitalsBtn" class="primary">Add</button>
       </div>
 
       <div class="muted" style="margin-top: 8px;">
-        Pick a time (defaults to now). You can export/import with the buttons on the left.
+        Enter Temp and/or HR. If you enter both, they are saved as two separate items at the same time.
       </div>
 
       <div style="overflow:auto; margin-top: 10px;">
@@ -158,7 +163,7 @@
 
         <div class="row" style="margin-top: 10px; align-items: flex-start;">
           <label>Time
-            <input id="notesTimeInput" type="datetime-local" />
+            <input id="notesTimeInput" class="dtInput" type="text" placeholder="YYYY-MM-DD HH:MM" />
           </label>
           <label style="flex: 1 1 320px;">How I feel
             <textarea id="notesTextInput" placeholder="e.g., sore throat improving, mild headache, tired"></textarea>
@@ -168,13 +173,6 @@
 
         <div style="overflow:auto; margin-top: 10px;">
           <table id="notesTable">
-            <thead>
-              <tr>
-                <th class="nowrap">Time</th>
-                <th>Note</th>
-                <th class="right">Actions</th>
-              </tr>
-            </thead>
             <tbody><!-- injected --></tbody>
           </table>
         </div>
@@ -185,11 +183,38 @@
 <script>
   // --------- CONFIG (rename meds here if you want) ----------
   const DEFAULT_MEDS = [
-    { id: "medA", name: "Med A (1×/day)", intervalHours: 24 },
-    { id: "medB", name: "Med B (1×/day)", intervalHours: 24 },
-    { id: "medC", name: "Med C (2×/day)", intervalHours: 12 },
-    { id: "medD", name: "Med D (2×/day)", intervalHours: 12 },
-    { id: "medE", name: "Med E (3×/day)", intervalHours: 8 },
+    {
+      id: "prednisone",
+      name: "醋酸泼尼松片（力生）5MG 100片/瓶 × 4瓶 (100)",
+      usage: "用法：每次6片 口服 每日两次",
+      intervalHours: 12,
+      dosePieces: 6,
+      doseUnit: "片"
+    },
+    {
+      id: "cyclophosphamide",
+      name: "环磷酰胺片（56）50MG 56片/盒 × 1盒 (56)",
+      usage: "用法：每次1片 口服 每日一次",
+      intervalHours: 24,
+      dosePieces: 1,
+      doseUnit: "片"
+    },
+    {
+      id: "calcium_carbonate",
+      name: "碳酸钙片（钙达利）500MG 100片/瓶 × 1瓶 (100)",
+      usage: "用法：每次1片 口服 每日三次",
+      intervalHours: 8,
+      dosePieces: 1,
+      doseUnit: "片"
+    },
+    {
+      id: "calcitriol",
+      name: "骨化三醇软胶囊（盖三淳）0.25UG 40粒/盒 × 2盒 (40)",
+      usage: "用法：每次1粒 口服 每日两次",
+      intervalHours: 12,
+      dosePieces: 1,
+      doseUnit: "粒"
+    },
   ];
 
   // --------- STORAGE ----------
@@ -227,16 +252,20 @@
   function loadState() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: ""})), vitals: [], notes: [] };
+      if (!raw) return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: ""})), vitals: [], notes: [] };
       const parsed = JSON.parse(raw);
 
       // Backward/forward tolerance
       const medsById = new Map((parsed.meds || []).map(m => [m.id, m]));
       const meds = DEFAULT_MEDS.map(m => {
         const saved = medsById.get(m.id);
+        const savedDosePieces = Number(saved?.dosePieces);
+        const dosePieces = Number.isFinite(savedDosePieces) && savedDosePieces > 0 ? savedDosePieces : m.dosePieces;
         return {
           ...m,
-          lastTakenISO: saved?.lastTakenISO || ""
+          dosePieces,
+          lastTakenISO: saved?.lastTakenISO || "",
+          lastTakenPieces: saved?.lastTakenPieces ?? ""
         };
       });
 
@@ -247,7 +276,7 @@
       };
     } catch (e) {
       console.warn("Failed to load state:", e);
-      return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: ""})), vitals: [], notes: [] };
+      return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: ""})), vitals: [], notes: [] };
     }
   }
 
@@ -269,6 +298,14 @@
   // --------- TIME HELPERS ----------
   function nowMs() { return Date.now(); }
   function isoToMs(iso) { return iso ? new Date(iso).getTime() : NaN; }
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
   function msToLocalInput(ms) {
     const d = new Date(ms);
     const pad = n => String(n).padStart(2, "0");
@@ -279,12 +316,101 @@
     const mi = pad(d.getMinutes());
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
   }
+
+  function msToLocalSpaceInput(ms) {
+    return msToLocalInput(ms).replace("T", " ");
+  }
+
+  function parseLocalDateTime(str) {
+    const s = String(str || "").trim();
+    if (!s) return null;
+
+    // Full: YYYY-MM-DD HH:MM (or YYYY-MM-DDTHH:MM)
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+    if (m) {
+      const yyyy = Number(m[1]);
+      const mm = Number(m[2]);
+      const dd = Number(m[3]);
+      const hh = Number(m[4]);
+      const mi = Number(m[5]);
+      const dt = new Date(yyyy, mm - 1, dd, hh, mi, 0, 0); // local time
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    // Short: MM-DD HH:MM (assumes current year)
+    m = s.match(/^(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+    if (m) {
+      const yyyy = new Date().getFullYear();
+      const mm = Number(m[1]);
+      const dd = Number(m[2]);
+      const hh = Number(m[3]);
+      const mi = Number(m[4]);
+      const dt = new Date(yyyy, mm - 1, dd, hh, mi, 0, 0); // local time
+      return isNaN(dt.getTime()) ? null : dt;
+    }
+
+    return null;
+  }
+
   function msToPretty(ms) {
     if (!Number.isFinite(ms)) return "";
-    return new Date(ms).toLocaleString(undefined, {
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit"
-    });
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, "0");
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    if (prettyOmitYear) return `${mm}-${dd} ${hh}:${mi}`;
+    const yyyy = d.getFullYear();
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  }
+
+  function msToInputTime(ms) {
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return inputOmitYear ? `${mm}-${dd} ${hh}:${mi}` : `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+  }
+
+  let prettyOmitYear = false;
+  let inputOmitYear = false;
+
+  function updateYearModes() {
+    const yearsHistory = new Set();
+
+    // Meds: last taken + next dose (derived)
+    for (const med of state.meds) {
+      const lastMs = isoToMs(med.lastTakenISO);
+      if (Number.isFinite(lastMs)) {
+        yearsHistory.add(new Date(lastMs).getFullYear());
+        const nextMs = computeNextMs(med);
+        if (Number.isFinite(nextMs)) yearsHistory.add(new Date(nextMs).getFullYear());
+      }
+    }
+
+    // Vitals
+    for (const v of state.vitals) {
+      const tMs = isoToMs(v.timeISO);
+      if (Number.isFinite(tMs)) yearsHistory.add(new Date(tMs).getFullYear());
+    }
+
+    // Notes
+    for (const n of state.notes) {
+      const tMs = isoToMs(n.timeISO);
+      if (Number.isFinite(tMs)) yearsHistory.add(new Date(tMs).getFullYear());
+    }
+
+    // Display: omit year if all recorded times are within one year
+    prettyOmitYear = yearsHistory.size <= 1;
+
+    // Inputs: omit year only if current year matches all history
+    const yearsInput = new Set(yearsHistory);
+    yearsInput.add(new Date().getFullYear());
+    inputOmitYear = yearsInput.size === 1;
   }
 
   // --------- STATUS / COLOR ----------
@@ -321,14 +447,44 @@
       const tr = document.createElement("tr");
 
       const tdName = document.createElement("td");
-      tdName.textContent = med.name;
+      tdName.innerHTML = `
+        <span class="cellMain">${escapeHtml(med.name)}</span>
+        ${med.usage ? `<span class="cellSub muted">${escapeHtml(med.usage)}</span>` : ""}
+      `;
+
+      const tdDose = document.createElement("td");
+      tdDose.innerHTML = `
+        <div class="row">
+          <input
+            class="small"
+            type="number"
+            min="0"
+            step="1"
+            value="${Number(med.dosePieces) || ""}"
+            data-act="setDosePieces"
+            data-id="${med.id}"
+            aria-label="Pieces each time"
+          />
+          <span class="muted">${escapeHtml(med.doseUnit || "")}</span>
+        </div>
+      `;
 
       const tdEvery = document.createElement("td");
       tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
 
       const tdLast = document.createElement("td");
       tdLast.className = "nowrap";
-      tdLast.textContent = med.lastTakenISO ? msToPretty(isoToMs(med.lastTakenISO)) : "—";
+      if (!med.lastTakenISO) {
+        tdLast.textContent = "—";
+      } else {
+        const parts = [];
+        parts.push(`<span class="cellMain">${escapeHtml(msToPretty(isoToMs(med.lastTakenISO)))}</span>`);
+        if (med.lastTakenPieces !== "" && med.lastTakenPieces !== null && med.lastTakenPieces !== undefined) {
+          const unit = med.doseUnit ? ` ${escapeHtml(med.doseUnit)}` : "";
+          parts.push(`<span class="cellSub muted">${escapeHtml(String(med.lastTakenPieces))}${unit}</span>`);
+        }
+        tdLast.innerHTML = parts.join("");
+      }
 
       const tdNext = document.createElement("td");
       tdNext.className = "nowrap";
@@ -352,6 +508,7 @@
       `;
 
       tr.appendChild(tdName);
+      tr.appendChild(tdDose);
       tr.appendChild(tdEvery);
       tr.appendChild(tdLast);
       tr.appendChild(tdNext);
@@ -372,6 +529,7 @@
 
     if (act === "takeNow") {
       med.lastTakenISO = new Date().toISOString();
+      med.lastTakenPieces = Number.isFinite(Number(med.dosePieces)) ? Number(med.dosePieces) : "";
       saveState(state);
       renderAll();
       return;
@@ -379,6 +537,7 @@
 
     if (act === "clear") {
       med.lastTakenISO = "";
+      med.lastTakenPieces = "";
       saveState(state);
       renderAll();
       return;
@@ -386,17 +545,16 @@
 
     if (act === "editTime") {
       const currentMs = isoToMs(med.lastTakenISO);
-      const preset = Number.isFinite(currentMs) ? msToLocalInput(currentMs) : msToLocalInput(nowMs());
+      const preset = Number.isFinite(currentMs) ? msToLocalSpaceInput(currentMs) : msToLocalSpaceInput(nowMs());
       const input = prompt(
-        `Set LAST TAKEN time for ${med.name} (format: YYYY-MM-DDTHH:MM)\nExample: 2026-02-13T09:20`,
+        `Set LAST TAKEN time for ${med.name} (format: YYYY-MM-DD HH:MM)\nExample: 2026-02-13 09:20`,
         preset
       );
       if (!input) return;
 
-      // Interpret as local time
-      const dt = new Date(input);
-      if (isNaN(dt.getTime())) {
-        alert("Invalid date/time. Use format YYYY-MM-DDTHH:MM");
+      const dt = parseLocalDateTime(input);
+      if (!dt) {
+        alert("Invalid date/time. Use format YYYY-MM-DD HH:MM");
         return;
       }
       med.lastTakenISO = dt.toISOString();
@@ -406,16 +564,55 @@
     }
   });
 
+  medTbody.addEventListener("change", (e) => {
+    const el = e.target;
+    if (!(el instanceof HTMLInputElement)) return;
+    if (el.dataset.act !== "setDosePieces") return;
+    const id = el.dataset.id;
+    const med = state.meds.find(m => m.id === id);
+    if (!med) return;
+
+    const raw = el.value.trim();
+    if (!raw) {
+      med.dosePieces = "";
+      saveState(state);
+      renderAll();
+      return;
+    }
+
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      alert("Pieces must be a positive number.");
+      el.value = String(med.dosePieces ?? "");
+      return;
+    }
+
+    med.dosePieces = Math.round(n);
+    saveState(state);
+    renderAll();
+  });
+
   // --------- VITALS ----------
   const vitalsTbody = document.querySelector("#vitalsTable tbody");
   const tempInput = document.getElementById("tempInput");
   const hrInput = document.getElementById("hrInput");
   const vitalsTimeInput = document.getElementById("vitalsTimeInput");
+  const addVitalsBtn = document.getElementById("addVitalsBtn");
 
-  function setDateTimeInputToNow(inputEl) {
+  function timeFormatHint() {
+    return inputOmitYear ? "MM-DD HH:MM (or YYYY-MM-DD HH:MM)" : "YYYY-MM-DD HH:MM";
+  }
+
+  function syncTimeInputUI(inputEl) {
     if (!inputEl) return;
-    if (inputEl.value) return;
-    inputEl.value = msToLocalInput(nowMs());
+    inputEl.placeholder = inputOmitYear ? "MM-DD HH:MM" : "YYYY-MM-DD HH:MM";
+
+    // Only auto-fill when user hasn't manually edited
+    if (inputEl.dataset.auto === "0") return;
+    if (!inputEl.value) {
+      inputEl.value = msToInputTime(nowMs());
+      inputEl.dataset.auto = "1";
+    }
   }
 
   function renderVitals() {
@@ -449,7 +646,27 @@
       });
   }
 
-  document.getElementById("addVitalsBtn").addEventListener("click", () => {
+  function readVitalsTimeOrAlert() {
+    const tInput = vitalsTimeInput.value;
+    const dt = tInput ? parseLocalDateTime(tInput) : new Date();
+    if (!dt) {
+      alert(`Invalid date/time. Use format ${timeFormatHint()}`);
+      return null;
+    }
+    return dt;
+  }
+
+  function pushVital(partial) {
+    const entry = {
+      id: genId(),
+      timeISO: partial.timeISO,
+      tempC: partial.tempC ?? "",
+      hrBpm: partial.hrBpm ?? ""
+    };
+    state.vitals.push(entry);
+  }
+
+  addVitalsBtn.addEventListener("click", () => {
     const temp = tempInput.value.trim();
     const hr = hrInput.value.trim();
 
@@ -458,26 +675,18 @@
       return;
     }
 
-     const tInput = vitalsTimeInput.value;
-     const dt = tInput ? new Date(tInput) : new Date();
-     if (isNaN(dt.getTime())) {
-       alert("Invalid date/time. Use the picker (YYYY-MM-DDTHH:MM)");
-       return;
-     }
+    const dt = readVitalsTimeOrAlert();
+    if (!dt) return;
+    const timeISO = dt.toISOString();
 
-    const entry = {
-      id: genId(),
-      timeISO: dt.toISOString(),
-      tempC: temp ? Number(temp) : "",
-      hrBpm: hr ? Number(hr) : ""
-    };
+    // Store as separate items (even if entered together)
+    if (temp) pushVital({ timeISO, tempC: Number(temp) });
+    if (hr) pushVital({ timeISO, hrBpm: Number(hr) });
 
-    state.vitals.push(entry);
     saveState(state);
     tempInput.value = "";
     hrInput.value = "";
-    vitalsTimeInput.value = msToLocalInput(nowMs());
-    renderVitals();
+    renderAll();
   });
 
   vitalsTbody.addEventListener("click", (e) => {
@@ -488,7 +697,7 @@
       if (!id) return;
       state.vitals = state.vitals.filter(v => v.id !== id);
       saveState(state);
-      renderVitals();
+      renderAll();
     }
   });
 
@@ -532,9 +741,9 @@
     }
 
     const tInput = notesTimeInput.value;
-    const dt = tInput ? new Date(tInput) : new Date();
-    if (isNaN(dt.getTime())) {
-      alert("Invalid date/time. Use the picker (YYYY-MM-DDTHH:MM)");
+    const dt = tInput ? parseLocalDateTime(tInput) : new Date();
+    if (!dt) {
+      alert(`Invalid date/time. Use format ${timeFormatHint()}`);
       return;
     }
 
@@ -546,8 +755,7 @@
 
     saveState(state);
     notesTextInput.value = "";
-    notesTimeInput.value = msToLocalInput(nowMs());
-    renderNotes();
+    renderAll();
   });
 
   notesTbody.addEventListener("click", (e) => {
@@ -558,17 +766,22 @@
       if (!id) return;
       state.notes = state.notes.filter(n => n.id !== id);
       saveState(state);
-      renderNotes();
+      renderAll();
     }
   });
 
   // --------- EXPORT / IMPORT / RESET ----------
   document.getElementById("resetAllBtn").addEventListener("click", () => {
     if (!confirm("Reset ALL meds + vitals? This clears local data.")) return;
-    state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:""})), vitals: [], notes: [] };
+    state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:"", lastTakenPieces:""})), vitals: [], notes: [] };
     saveState(state);
-    vitalsTimeInput.value = msToLocalInput(nowMs());
-    notesTimeInput.value = msToLocalInput(nowMs());
+    updateYearModes();
+    vitalsTimeInput.dataset.auto = "1";
+    notesTimeInput.dataset.auto = "1";
+    vitalsTimeInput.value = "";
+    notesTimeInput.value = "";
+    syncTimeInputUI(vitalsTimeInput);
+    syncTimeInputUI(notesTimeInput);
     notesTextInput.value = "";
     renderAll();
   });
@@ -600,8 +813,13 @@
       state.vitals = v.vitals;
       state.notes = n.notes;
       saveState(state);
-      vitalsTimeInput.value = msToLocalInput(nowMs());
-      notesTimeInput.value = msToLocalInput(nowMs());
+      updateYearModes();
+      vitalsTimeInput.dataset.auto = "1";
+      notesTimeInput.dataset.auto = "1";
+      vitalsTimeInput.value = "";
+      notesTimeInput.value = "";
+      syncTimeInputUI(vitalsTimeInput);
+      syncTimeInputUI(notesTimeInput);
       notesTextInput.value = "";
       renderAll();
       alert("Imported!");
@@ -617,13 +835,23 @@
   soonWindowSel.addEventListener("change", renderAll);
 
   function renderAll() {
+    updateYearModes();
+    syncTimeInputUI(vitalsTimeInput);
+    syncTimeInputUI(notesTimeInput);
     renderMeds();
     renderVitals();
     renderNotes();
   }
 
-  setDateTimeInputToNow(vitalsTimeInput);
-  setDateTimeInputToNow(notesTimeInput);
+  vitalsTimeInput.addEventListener("input", () => { vitalsTimeInput.dataset.auto = "0"; });
+  notesTimeInput.addEventListener("input", () => { notesTimeInput.dataset.auto = "0"; });
+
+  // Initialize default time inputs
+  updateYearModes();
+  vitalsTimeInput.dataset.auto = "1";
+  notesTimeInput.dataset.auto = "1";
+  syncTimeInputUI(vitalsTimeInput);
+  syncTimeInputUI(notesTimeInput);
   renderAll();
   setInterval(renderMeds, 30 * 1000); // update due colors every 30s
 </script>
