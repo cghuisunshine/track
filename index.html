@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medication + Vitals Tracker</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 18px; line-height: 1.3; }
+    h1 { font-size: 20px; margin: 0 0 10px; }
+    .sub { opacity: .8; margin-bottom: 14px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 980px) { .grid { grid-template-columns: 1.2fr .8fr; } }
+
+    .card { border: 1px solid rgba(127,127,127,.35); border-radius: 12px; padding: 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .row > * { flex: 0 0 auto; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid rgba(127,127,127,.25); vertical-align: top; }
+    th { text-align: left; font-weight: 650; font-size: 12px; opacity: .85; }
+    td { font-size: 14px; }
+
+    button, input, select {
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: transparent;
+    }
+    textarea {
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: transparent;
+      width: 100%;
+      max-width: 100%;
+      min-width: 240px;
+      min-height: 90px;
+      resize: vertical;
+    }
+    button { cursor: pointer; }
+    button.primary { font-weight: 650; }
+    button.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; }
+    input[type="number"] { width: 110px; }
+    input[type="datetime-local"] { min-width: 210px; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 650;
+      border: 1px solid rgba(127,127,127,.35);
+      white-space: nowrap;
+    }
+    .ok { background: rgba(0, 200, 0, .12); }
+    .soon { background: rgba(255, 165, 0, .18); }
+    .due { background: rgba(255, 75, 75, .20); }
+    .over { background: rgba(160, 0, 255, .18); }
+
+    .muted { opacity: .75; font-size: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+
+    .danger { color: #b00020; }
+    .footer { margin-top: 12px; opacity: .7; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Medication + Vitals Tracker</h1>
+  <div class="sub">Static page • saves to your browser (localStorage) • GitHub Pages-ready</div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row" style="justify-content: space-between;">
+        <div>
+          <div class="muted">Medication schedule</div>
+          <div class="muted">Colors: <span class="pill ok">OK</span> <span class="pill soon">DUE SOON</span> <span class="pill due">DUE NOW</span> <span class="pill over">OVERDUE</span></div>
+        </div>
+        <div class="row">
+          <label class="muted">Due soon window:
+            <select id="soonWindow">
+              <option value="15">15 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="60">60 min</option>
+            </select>
+          </label>
+          <button class="small" id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto; margin-top: 10px;">
+        <table id="medTable">
+          <thead>
+            <tr>
+              <th>Medicine</th>
+              <th class="nowrap">Every</th>
+              <th class="nowrap">Last taken</th>
+              <th class="nowrap">Next dose</th>
+              <th>Status</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody><!-- injected --></tbody>
+        </table>
+      </div>
+
+      <div class="row" style="margin-top: 12px;">
+        <button id="resetAllBtn" class="small">Reset all</button>
+        <button id="exportBtn" class="small">Export JSON</button>
+        <label class="small" style="display:inline-flex; align-items:center; gap:8px;">
+          Import JSON
+          <input id="importFile" type="file" accept="application/json" />
+        </label>
+      </div>
+
+      <div class="footer">
+        Tip: When you take a medicine, click <b>Take now</b> — it stores the exact timestamp and calculates the next dose.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="muted">Vitals (Temperature + Heart Rate)</div>
+
+      <div class="row" style="margin-top: 10px;">
+        <label>Time
+          <input id="vitalsTimeInput" type="datetime-local" />
+        </label>
+        <label>Temp (°C)
+          <input id="tempInput" type="number" step="0.1" placeholder="37.2" />
+        </label>
+        <label>Heart rate (bpm)
+          <input id="hrInput" type="number" step="1" placeholder="88" />
+        </label>
+        <button id="addVitalsBtn" class="primary">Add entry</button>
+      </div>
+
+      <div class="muted" style="margin-top: 8px;">
+        Pick a time (defaults to now). You can export/import with the buttons on the left.
+      </div>
+
+      <div style="overflow:auto; margin-top: 10px;">
+        <table id="vitalsTable">
+          <thead>
+            <tr>
+              <th class="nowrap">Time</th>
+              <th class="nowrap">Temp (°C)</th>
+              <th class="nowrap">HR (bpm)</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody><!-- injected --></tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 14px; border-top: 1px solid rgba(127,127,127,.25); padding-top: 14px;">
+        <div class="muted">Notes (standalone timeline)</div>
+
+        <div class="row" style="margin-top: 10px; align-items: flex-start;">
+          <label>Time
+            <input id="notesTimeInput" type="datetime-local" />
+          </label>
+          <label style="flex: 1 1 320px;">How I feel
+            <textarea id="notesTextInput" placeholder="e.g., sore throat improving, mild headache, tired"></textarea>
+          </label>
+          <button id="addNoteBtn" class="primary">Add note</button>
+        </div>
+
+        <div style="overflow:auto; margin-top: 10px;">
+          <table id="notesTable">
+            <thead>
+              <tr>
+                <th class="nowrap">Time</th>
+                <th>Note</th>
+                <th class="right">Actions</th>
+              </tr>
+            </thead>
+            <tbody><!-- injected --></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // --------- CONFIG (rename meds here if you want) ----------
+  const DEFAULT_MEDS = [
+    { id: "medA", name: "Med A (1×/day)", intervalHours: 24 },
+    { id: "medB", name: "Med B (1×/day)", intervalHours: 24 },
+    { id: "medC", name: "Med C (2×/day)", intervalHours: 12 },
+    { id: "medD", name: "Med D (2×/day)", intervalHours: 12 },
+    { id: "medE", name: "Med E (3×/day)", intervalHours: 8 },
+  ];
+
+  // --------- STORAGE ----------
+  const LS_KEY = "med_tracker_v1";
+
+   function genId() {
+     try {
+       if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+     } catch (_) {}
+     return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+   }
+
+   function ensureVitalIds(vitals) {
+     let changed = false;
+     const out = (Array.isArray(vitals) ? vitals : []).map((v) => {
+      if (v && typeof v === "object" && v.id) return v;
+      changed = true;
+      const base = (v && typeof v === "object") ? v : {};
+      return { ...base, id: genId() };
+     });
+     return { vitals: out, changed };
+   }
+
+   function ensureNoteIds(notes) {
+     let changed = false;
+     const out = (Array.isArray(notes) ? notes : []).map((n) => {
+      if (n && typeof n === "object" && n.id) return n;
+      changed = true;
+      const base = (n && typeof n === "object") ? n : {};
+      return { ...base, id: genId() };
+     });
+     return { notes: out, changed };
+   }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: ""})), vitals: [], notes: [] };
+      const parsed = JSON.parse(raw);
+
+      // Backward/forward tolerance
+      const medsById = new Map((parsed.meds || []).map(m => [m.id, m]));
+      const meds = DEFAULT_MEDS.map(m => {
+        const saved = medsById.get(m.id);
+        return {
+          ...m,
+          lastTakenISO: saved?.lastTakenISO || ""
+        };
+      });
+
+      return {
+        meds,
+        vitals: Array.isArray(parsed.vitals) ? parsed.vitals : [],
+        notes: Array.isArray(parsed.notes) ? parsed.notes : []
+      };
+    } catch (e) {
+      console.warn("Failed to load state:", e);
+      return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: ""})), vitals: [], notes: [] };
+    }
+  }
+
+  function saveState(state) {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  }
+
+  let state = loadState();
+
+  // One-time migrations for older saved data
+  (function migrate() {
+    const v = ensureVitalIds(state.vitals);
+    const n = ensureNoteIds(state.notes);
+    state.vitals = v.vitals;
+    state.notes = n.notes;
+    if (v.changed || n.changed) saveState(state);
+  })();
+
+  // --------- TIME HELPERS ----------
+  function nowMs() { return Date.now(); }
+  function isoToMs(iso) { return iso ? new Date(iso).getTime() : NaN; }
+  function msToLocalInput(ms) {
+    const d = new Date(ms);
+    const pad = n => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+  function msToPretty(ms) {
+    if (!Number.isFinite(ms)) return "";
+    return new Date(ms).toLocaleString(undefined, {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  // --------- STATUS / COLOR ----------
+  function computeNextMs(med) {
+    const lastMs = isoToMs(med.lastTakenISO);
+    if (!Number.isFinite(lastMs)) return NaN;
+    return lastMs + med.intervalHours * 3600 * 1000;
+  }
+
+  function computeStatus(nextMs, soonMinutes) {
+    if (!Number.isFinite(nextMs)) return { label: "—", cls: "" };
+
+    const t = nowMs();
+    const diff = nextMs - t; // ms
+
+    if (diff <= -60 * 1000) return { label: "OVERDUE", cls: "over" }; // 1 min grace
+    if (diff <= 0) return { label: "DUE NOW", cls: "due" };
+    if (diff <= soonMinutes * 60 * 1000) return { label: "DUE SOON", cls: "soon" };
+    return { label: "OK", cls: "ok" };
+  }
+
+  // --------- RENDER MEDS ----------
+  const medTbody = document.querySelector("#medTable tbody");
+  const soonWindowSel = document.getElementById("soonWindow");
+
+  function renderMeds() {
+    const soonMinutes = parseInt(soonWindowSel.value, 10) || 30;
+    medTbody.innerHTML = "";
+
+    state.meds.forEach((med) => {
+      const nextMs = computeNextMs(med);
+      const status = computeStatus(nextMs, soonMinutes);
+
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = med.name;
+
+      const tdEvery = document.createElement("td");
+      tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
+
+      const tdLast = document.createElement("td");
+      tdLast.className = "nowrap";
+      tdLast.textContent = med.lastTakenISO ? msToPretty(isoToMs(med.lastTakenISO)) : "—";
+
+      const tdNext = document.createElement("td");
+      tdNext.className = "nowrap";
+      tdNext.textContent = Number.isFinite(nextMs) ? msToPretty(nextMs) : "—";
+
+      const tdStatus = document.createElement("td");
+      if (status.label === "—") {
+        tdStatus.innerHTML = `<span class="pill">—</span>`;
+      } else {
+        tdStatus.innerHTML = `<span class="pill ${status.cls}">${status.label}</span>`;
+      }
+
+      const tdActions = document.createElement("td");
+      tdActions.className = "right";
+      tdActions.innerHTML = `
+        <div class="row" style="justify-content:flex-end;">
+          <button class="small primary" data-act="takeNow" data-id="${med.id}">Take now</button>
+          <button class="small" data-act="editTime" data-id="${med.id}">Set time</button>
+          <button class="small" data-act="clear" data-id="${med.id}">Clear</button>
+        </div>
+      `;
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdEvery);
+      tr.appendChild(tdLast);
+      tr.appendChild(tdNext);
+      tr.appendChild(tdStatus);
+      tr.appendChild(tdActions);
+
+      medTbody.appendChild(tr);
+    });
+  }
+
+  medTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+    const med = state.meds.find(m => m.id === id);
+    if (!med) return;
+
+    if (act === "takeNow") {
+      med.lastTakenISO = new Date().toISOString();
+      saveState(state);
+      renderAll();
+      return;
+    }
+
+    if (act === "clear") {
+      med.lastTakenISO = "";
+      saveState(state);
+      renderAll();
+      return;
+    }
+
+    if (act === "editTime") {
+      const currentMs = isoToMs(med.lastTakenISO);
+      const preset = Number.isFinite(currentMs) ? msToLocalInput(currentMs) : msToLocalInput(nowMs());
+      const input = prompt(
+        `Set LAST TAKEN time for ${med.name} (format: YYYY-MM-DDTHH:MM)\nExample: 2026-02-13T09:20`,
+        preset
+      );
+      if (!input) return;
+
+      // Interpret as local time
+      const dt = new Date(input);
+      if (isNaN(dt.getTime())) {
+        alert("Invalid date/time. Use format YYYY-MM-DDTHH:MM");
+        return;
+      }
+      med.lastTakenISO = dt.toISOString();
+      saveState(state);
+      renderAll();
+      return;
+    }
+  });
+
+  // --------- VITALS ----------
+  const vitalsTbody = document.querySelector("#vitalsTable tbody");
+  const tempInput = document.getElementById("tempInput");
+  const hrInput = document.getElementById("hrInput");
+  const vitalsTimeInput = document.getElementById("vitalsTimeInput");
+
+  function setDateTimeInputToNow(inputEl) {
+    if (!inputEl) return;
+    if (inputEl.value) return;
+    inputEl.value = msToLocalInput(nowMs());
+  }
+
+  function renderVitals() {
+    vitalsTbody.innerHTML = "";
+    state.vitals
+      .slice()
+      .sort((a,b) => b.timeISO.localeCompare(a.timeISO))
+      .forEach((v) => {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.className = "nowrap";
+        tdTime.textContent = msToPretty(isoToMs(v.timeISO));
+
+        const tdTemp = document.createElement("td");
+        tdTemp.textContent = (v.tempC ?? "") === "" ? "—" : String(v.tempC);
+
+        const tdHr = document.createElement("td");
+        tdHr.textContent = (v.hrBpm ?? "") === "" ? "—" : String(v.hrBpm);
+
+        const tdAct = document.createElement("td");
+        tdAct.className = "right";
+        tdAct.innerHTML = `<button class="small" data-act="delVital" data-id="${v.id}">Delete</button>`;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdTemp);
+        tr.appendChild(tdHr);
+        tr.appendChild(tdAct);
+
+        vitalsTbody.appendChild(tr);
+      });
+  }
+
+  document.getElementById("addVitalsBtn").addEventListener("click", () => {
+    const temp = tempInput.value.trim();
+    const hr = hrInput.value.trim();
+
+    if (!temp && !hr) {
+      alert("Enter Temperature and/or Heart Rate first.");
+      return;
+    }
+
+     const tInput = vitalsTimeInput.value;
+     const dt = tInput ? new Date(tInput) : new Date();
+     if (isNaN(dt.getTime())) {
+       alert("Invalid date/time. Use the picker (YYYY-MM-DDTHH:MM)");
+       return;
+     }
+
+    const entry = {
+      id: genId(),
+      timeISO: dt.toISOString(),
+      tempC: temp ? Number(temp) : "",
+      hrBpm: hr ? Number(hr) : ""
+    };
+
+    state.vitals.push(entry);
+    saveState(state);
+    tempInput.value = "";
+    hrInput.value = "";
+    vitalsTimeInput.value = msToLocalInput(nowMs());
+    renderVitals();
+  });
+
+  vitalsTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.dataset.act === "delVital") {
+      const id = btn.dataset.id;
+      if (!id) return;
+      state.vitals = state.vitals.filter(v => v.id !== id);
+      saveState(state);
+      renderVitals();
+    }
+  });
+
+  // --------- NOTES ----------
+  const notesTbody = document.querySelector("#notesTable tbody");
+  const notesTimeInput = document.getElementById("notesTimeInput");
+  const notesTextInput = document.getElementById("notesTextInput");
+
+  function renderNotes() {
+    notesTbody.innerHTML = "";
+    state.notes
+      .slice()
+      .sort((a,b) => b.timeISO.localeCompare(a.timeISO))
+      .forEach((n) => {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.className = "nowrap";
+        tdTime.textContent = msToPretty(isoToMs(n.timeISO));
+
+        const tdText = document.createElement("td");
+        tdText.textContent = n.text || "";
+
+        const tdAct = document.createElement("td");
+        tdAct.className = "right";
+        tdAct.innerHTML = `<button class="small" data-act="delNote" data-id="${n.id}">Delete</button>`;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdText);
+        tr.appendChild(tdAct);
+
+        notesTbody.appendChild(tr);
+      });
+  }
+
+  document.getElementById("addNoteBtn").addEventListener("click", () => {
+    const text = notesTextInput.value.trim();
+    if (!text) {
+      alert("Enter a note first.");
+      return;
+    }
+
+    const tInput = notesTimeInput.value;
+    const dt = tInput ? new Date(tInput) : new Date();
+    if (isNaN(dt.getTime())) {
+      alert("Invalid date/time. Use the picker (YYYY-MM-DDTHH:MM)");
+      return;
+    }
+
+    state.notes.push({
+      id: genId(),
+      timeISO: dt.toISOString(),
+      text
+    });
+
+    saveState(state);
+    notesTextInput.value = "";
+    notesTimeInput.value = msToLocalInput(nowMs());
+    renderNotes();
+  });
+
+  notesTbody.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.dataset.act === "delNote") {
+      const id = btn.dataset.id;
+      if (!id) return;
+      state.notes = state.notes.filter(n => n.id !== id);
+      saveState(state);
+      renderNotes();
+    }
+  });
+
+  // --------- EXPORT / IMPORT / RESET ----------
+  document.getElementById("resetAllBtn").addEventListener("click", () => {
+    if (!confirm("Reset ALL meds + vitals? This clears local data.")) return;
+    state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:""})), vitals: [], notes: [] };
+    saveState(state);
+    vitalsTimeInput.value = msToLocalInput(nowMs());
+    notesTimeInput.value = msToLocalInput(nowMs());
+    notesTextInput.value = "";
+    renderAll();
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "med-tracker-backup.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      // Minimal validation + merge with DEFAULT_MEDS
+      const medsById = new Map((parsed.meds || []).map(m => [m.id, m]));
+      state.meds = DEFAULT_MEDS.map(m => ({
+        ...m,
+        lastTakenISO: medsById.get(m.id)?.lastTakenISO || ""
+      }));
+      const v = ensureVitalIds(Array.isArray(parsed.vitals) ? parsed.vitals : []);
+      const n = ensureNoteIds(Array.isArray(parsed.notes) ? parsed.notes : []);
+      state.vitals = v.vitals;
+      state.notes = n.notes;
+      saveState(state);
+      vitalsTimeInput.value = msToLocalInput(nowMs());
+      notesTimeInput.value = msToLocalInput(nowMs());
+      notesTextInput.value = "";
+      renderAll();
+      alert("Imported!");
+    } catch (err) {
+      alert("Import failed. Make sure it's a JSON file exported from this page.");
+    } finally {
+      e.target.value = "";
+    }
+  });
+
+  // --------- REFRESH + AUTO UPDATE ----------
+  document.getElementById("refreshBtn").addEventListener("click", renderAll);
+  soonWindowSel.addEventListener("change", renderAll);
+
+  function renderAll() {
+    renderMeds();
+    renderVitals();
+    renderNotes();
+  }
+
+  setDateTimeInputToNow(vitalsTimeInput);
+  setDateTimeInputToNow(notesTimeInput);
+  renderAll();
+  setInterval(renderMeds, 30 * 1000); // update due colors every 30s
+</script>
+</body>
+</html>
