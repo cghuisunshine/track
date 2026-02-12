@@ -109,7 +109,6 @@
               <th id="thMedicine">Medicine</th>
               <th class="nowrap" id="thEachTime">Each time</th>
               <th class="nowrap" id="thEvery">Every</th>
-              <th class="nowrap" id="thLastTaken">Last taken</th>
               <th class="nowrap" id="thNextDose">Next dose</th>
               <th id="thStatus">Status</th>
               <th class="right" id="thActions">Actions</th>
@@ -708,20 +707,6 @@
       const tdEvery = document.createElement("td");
       tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
 
-      const tdLast = document.createElement("td");
-      tdLast.className = "nowrap";
-      if (!med.lastTakenISO) {
-        tdLast.textContent = "—";
-      } else {
-        const parts = [];
-        parts.push(`<span class="cellMain">${escapeHtml(msToPretty(isoToMs(med.lastTakenISO)))}</span>`);
-        if (med.lastTakenPieces !== "" && med.lastTakenPieces !== null && med.lastTakenPieces !== undefined) {
-          const unit = med.doseUnit ? ` ${escapeHtml(med.doseUnit)}` : "";
-          parts.push(`<span class="cellSub muted">${escapeHtml(String(med.lastTakenPieces))}${unit}</span>`);
-        }
-        tdLast.innerHTML = parts.join("");
-      }
-
       const tdNext = document.createElement("td");
       tdNext.className = "nowrap";
       tdNext.textContent = Number.isFinite(nextMs) ? msToPretty(nextMs) : "—";
@@ -745,7 +730,6 @@
       tr.appendChild(tdName);
       tr.appendChild(tdDose);
       tr.appendChild(tdEvery);
-      tr.appendChild(tdLast);
       tr.appendChild(tdNext);
       tr.appendChild(tdStatus);
       tr.appendChild(tdActions);
