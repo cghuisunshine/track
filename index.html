@@ -511,6 +511,17 @@
 
   let state = loadState();
 
+  // Language selector
+  const langSel = document.getElementById("langSel");
+  if (langSel) {
+    langSel.value = ui.lang;
+    langSel.addEventListener("change", () => {
+      ui.lang = langSel.value === "en" ? "en" : "zh";
+      saveUi(ui);
+      renderAll();
+    });
+  }
+
   // One-time migrations for older saved data
   (function migrate() {
     const v = ensureVitalIds(state.vitals);
@@ -688,7 +699,7 @@
             value="${Number(med.dosePieces) || ""}"
             data-act="setDosePieces"
             data-id="${med.id}"
-            aria-label="Pieces each time"
+            aria-label="${escapeHtml(t("thEachTime"))}"
           />
           <span class="muted">${escapeHtml(med.doseUnit || "")}</span>
         </div>
@@ -815,7 +826,7 @@
   const addVitalsBtn = document.getElementById("addVitalsBtn");
 
   function timeFormatHint() {
-    return inputOmitYear ? "MM-DD HH:MM (or YYYY-MM-DD HH:MM)" : "YYYY-MM-DD HH:MM";
+    return inputOmitYear ? t("timeHintShort") : t("timeHintFull");
   }
 
   function syncTimeInputUI(inputEl) {
@@ -865,7 +876,7 @@
     const tInput = vitalsTimeInput.value;
     const dt = tInput ? parseLocalDateTime(tInput) : new Date();
     if (!dt) {
-      alert(`Invalid date/time. Use format ${timeFormatHint()}`);
+      alert(`${t("alertInvalidTime")} ${timeFormatHint()}`);
       return null;
     }
     return dt;
@@ -958,7 +969,7 @@
     const tInput = notesTimeInput.value;
     const dt = tInput ? parseLocalDateTime(tInput) : new Date();
     if (!dt) {
-      alert(`Invalid date/time. Use format ${timeFormatHint()}`);
+      alert(`${t("alertInvalidTime")} ${timeFormatHint()}`);
       return;
     }
 
@@ -1058,6 +1069,7 @@
 
   function renderAll() {
     updateYearModes();
+    applyI18n();
     syncTimeInputUI(vitalsTimeInput);
     syncTimeInputUI(notesTimeInput);
     renderMeds();
