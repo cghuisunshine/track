@@ -503,7 +503,6 @@
         <div class="row" style="justify-content:flex-end;">
           <button class="small primary" data-act="takeNow" data-id="${med.id}">Take now</button>
           <button class="small" data-act="editTime" data-id="${med.id}">Set time</button>
-          <button class="small" data-act="clear" data-id="${med.id}">Clear</button>
         </div>
       `;
 
@@ -530,14 +529,6 @@
     if (act === "takeNow") {
       med.lastTakenISO = new Date().toISOString();
       med.lastTakenPieces = Number.isFinite(Number(med.dosePieces)) ? Number(med.dosePieces) : "";
-      saveState(state);
-      renderAll();
-      return;
-    }
-
-    if (act === "clear") {
-      med.lastTakenISO = "";
-      med.lastTakenPieces = "";
       saveState(state);
       renderAll();
       return;
