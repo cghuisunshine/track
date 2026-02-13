@@ -56,6 +56,11 @@
       border: 1px solid rgba(127,127,127,.35);
       white-space: nowrap;
     }
+
+    /* Allow using status colors on table cells too */
+    td.ok, td.soon, td.due, td.over {
+      border-radius: 10px;
+    }
     .ok { background: rgba(0, 200, 0, .12); }
     .soon { background: rgba(255, 165, 0, .18); }
     .due { background: rgba(255, 75, 75, .20); }
@@ -121,7 +126,6 @@
               <th class="nowrap eachTimeCol" id="thEachTime">Each time</th>
               <th class="nowrap" id="thEvery">Every</th>
               <th class="nowrap" id="thNextDose">Next dose</th>
-              <th id="thStatus">Status</th>
               <th class="right" id="thActions">Actions</th>
             </tr>
           </thead>
@@ -804,15 +808,8 @@
       tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
 
       const tdNext = document.createElement("td");
-      tdNext.className = "nowrap";
+      tdNext.className = `nowrap ${status.cls || ""}`;
       tdNext.textContent = Number.isFinite(nextMs) ? msToPretty(nextMs) : "—";
-
-      const tdStatus = document.createElement("td");
-      if (!status.code) {
-        tdStatus.innerHTML = `<span class="pill">—</span>`;
-      } else {
-        tdStatus.innerHTML = `<span class="pill ${status.cls}">${escapeHtml(t(`status_${status.code}`))}</span>`;
-      }
 
       const tdActions = document.createElement("td");
       tdActions.className = "right";
@@ -827,7 +824,6 @@
       tr.appendChild(tdDose);
       tr.appendChild(tdEvery);
       tr.appendChild(tdNext);
-      tr.appendChild(tdStatus);
       tr.appendChild(tdActions);
 
       medTbody.appendChild(tr);
