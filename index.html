@@ -46,9 +46,7 @@
     button { cursor: pointer; }
     button.primary { font-weight: 650; }
     button.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; }
-    input.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; width: 52px; }
-
-    .eachTimeCol { width: 90px; }
+    .eachTimeCol { width: 60px; }
     input[type="number"] { width: 110px; }
     .dtInput { min-width: 210px; }
 
@@ -796,23 +794,11 @@
 
       const tdDose = document.createElement("td");
       tdDose.className = "eachTimeCol";
-      tdDose.innerHTML = `
-        <div>
-          <div class="row">
-          <input
-            class="small"
-            type="number"
-            min="0"
-            step="1"
-            value="${Number(med.dosePieces) || ""}"
-            data-act="setDosePieces"
-            data-id="${med.id}"
-            aria-label="${escapeHtml(t("thEachTime"))}"
-          />
-          </div>
-          <span class="muted">${escapeHtml(med.doseUnit || "")}</span>
-        </div>
-      `;
+      {
+        const pieces = Number.isFinite(Number(med.dosePieces)) && Number(med.dosePieces) > 0 ? Math.round(Number(med.dosePieces)) : "";
+        const unit = med.doseUnit ? ` ${med.doseUnit}` : "";
+        tdDose.innerHTML = pieces ? `<span class="mono">${escapeHtml(String(pieces))}</span><span class="muted">${escapeHtml(unit)}</span>` : "—";
+      }
 
       const tdEvery = document.createElement("td");
       tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
@@ -959,33 +945,7 @@
     historyDialog.close();
   });
 
-  medTbody.addEventListener("change", (e) => {
-    const el = e.target;
-    if (!(el instanceof HTMLInputElement)) return;
-    if (el.dataset.act !== "setDosePieces") return;
-    const id = el.dataset.id;
-    const med = state.meds.find(m => m.id === id);
-    if (!med) return;
 
-    const raw = el.value.trim();
-    if (!raw) {
-      med.dosePieces = "";
-      saveState(state);
-      renderAll();
-      return;
-    }
-
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) {
-      alert(t("alertPiecesPositive"));
-      el.value = String(med.dosePieces ?? "");
-      return;
-    }
-
-    med.dosePieces = Math.round(n);
-    saveState(state);
-    renderAll();
-  });
 
   // --------- VITALS ----------
   const vitalsTbody = document.querySelector("#vitalsTable tbody");
