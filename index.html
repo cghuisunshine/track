@@ -68,6 +68,17 @@
 
     .danger { color: #b00020; }
     .footer { margin-top: 12px; opacity: .7; font-size: 12px; }
+
+    dialog {
+      border: 1px solid rgba(127,127,127,.35);
+      border-radius: 12px;
+      padding: 12px;
+      max-width: 720px;
+      width: min(720px, calc(100vw - 28px));
+    }
+    dialog::backdrop { background: rgba(0,0,0,.35); }
+    .dialogHead { display:flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .dialogTitle { font-weight: 700; }
   </style>
 </head>
 <body>
@@ -188,6 +199,29 @@
     </div>
   </div>
 
+  <dialog id="historyDialog">
+    <div class="dialogHead">
+      <div>
+        <div class="dialogTitle" id="historyTitle">History</div>
+        <div class="muted" id="historySub"></div>
+      </div>
+      <button class="small" id="historyCloseBtn">Close</button>
+    </div>
+
+    <div style="overflow:auto; margin-top: 10px;">
+      <table id="historyTable">
+        <thead>
+          <tr>
+            <th class="nowrap" id="historyThTime">Time</th>
+            <th class="nowrap" id="historyThPieces">Pieces</th>
+          </tr>
+        </thead>
+        <tbody><!-- injected --></tbody>
+      </table>
+    </div>
+    <div class="muted" id="historyEmpty" style="margin-top: 10px; display:none;"></div>
+  </dialog>
+
 <script>
   // --------- UI LANGUAGE ----------
   const UI_LS_KEY = "med_tracker_ui_v1";
@@ -237,6 +271,12 @@
       howIFeel: "我的感受",
       addNote: "添加备注",
       notesPlaceholder: "例如：喉咙痛减轻、轻微头痛、疲惫",
+
+      historyTitle: "服用记录",
+      historyClose: "关闭",
+      historyTime: "时间",
+      historyPieces: "用量",
+      historyEmpty: "暂无记录（双击药品名称可查看记录）。",
 
       delete: "删除",
 
@@ -301,6 +341,12 @@
       howIFeel: "How I feel",
       addNote: "Add note",
       notesPlaceholder: "e.g., sore throat improving, mild headache, tired",
+
+      historyTitle: "Dose history",
+      historyClose: "Close",
+      historyTime: "Time",
+      historyPieces: "Pieces",
+      historyEmpty: "No records yet.",
 
       delete: "Delete",
 
@@ -403,6 +449,12 @@
     document.getElementById("addNoteBtn").textContent = t("addNote");
     const notesText = document.getElementById("notesTextInput");
     if (notesText) notesText.placeholder = t("notesPlaceholder");
+
+    setText("historyTitle", "historyTitle");
+    document.getElementById("historyCloseBtn").textContent = t("historyClose");
+    setText("historyThTime", "historyTime");
+    setText("historyThPieces", "historyPieces");
+    setText("historyEmpty", "historyEmpty");
   }
 
   // --------- CONFIG (rename meds here if you want) ----------
@@ -462,7 +514,7 @@
      return { vitals: out, changed };
    }
 
-   function ensureNoteIds(notes) {
+  function ensureNoteIds(notes) {
      let changed = false;
      const out = (Array.isArray(notes) ? notes : []).map((n) => {
       if (n && typeof n === "object" && n.id) return n;
@@ -476,7 +528,7 @@
   function loadState() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: ""})), vitals: [], notes: [] };
+      if (!raw) return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: "", history: []})), vitals: [], notes: [] };
       const parsed = JSON.parse(raw);
 
       // Backward/forward tolerance
@@ -485,11 +537,13 @@
         const saved = medsById.get(m.id);
         const savedDosePieces = Number(saved?.dosePieces);
         const dosePieces = Number.isFinite(savedDosePieces) && savedDosePieces > 0 ? savedDosePieces : m.dosePieces;
+        const history = Array.isArray(saved?.history) ? saved.history : [];
         return {
           ...m,
           dosePieces,
           lastTakenISO: saved?.lastTakenISO || "",
-          lastTakenPieces: saved?.lastTakenPieces ?? ""
+          lastTakenPieces: saved?.lastTakenPieces ?? "",
+          history
         };
       });
 
@@ -500,8 +554,55 @@
       };
     } catch (e) {
       console.warn("Failed to load state:", e);
-      return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: ""})), vitals: [], notes: [] };
+      return { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO: "", lastTakenPieces: "", history: []})), vitals: [], notes: [] };
     }
+  }
+
+  function ensureMedHistory(med) {
+    const raw = Array.isArray(med.history) ? med.history : [];
+    let changed = !Array.isArray(med.history);
+    const out = raw
+      .filter(e => e && typeof e === "object")
+      .map((e) => {
+        const id = e.id || genId();
+        const timeISO = typeof e.timeISO === "string" ? e.timeISO : "";
+        const pieces = (e.pieces === "" || e.pieces === null || e.pieces === undefined) ? "" : Number(e.pieces);
+        const clean = {
+          id,
+          timeISO,
+          pieces: Number.isFinite(pieces) ? pieces : ""
+        };
+        if (id !== e.id || clean.timeISO !== e.timeISO || clean.pieces !== e.pieces) changed = true;
+        return clean;
+      })
+      .filter(e => e.timeISO);
+
+    // Backfill: if there is a lastTakenISO but no history, create one
+    if (out.length === 0 && med.lastTakenISO) {
+      out.push({
+        id: genId(),
+        timeISO: med.lastTakenISO,
+        pieces: (med.lastTakenPieces !== "" && med.lastTakenPieces !== null && med.lastTakenPieces !== undefined)
+          ? Number(med.lastTakenPieces)
+          : (Number.isFinite(Number(med.dosePieces)) ? Number(med.dosePieces) : "")
+      });
+      changed = true;
+    }
+
+    // Normalize lastTaken from history (latest time)
+    if (out.length > 0) {
+      const latest = out
+        .slice()
+        .sort((a, b) => b.timeISO.localeCompare(a.timeISO))[0];
+      if (latest && latest.timeISO && latest.timeISO !== med.lastTakenISO) {
+        med.lastTakenISO = latest.timeISO;
+        med.lastTakenPieces = latest.pieces;
+        changed = true;
+      }
+    }
+
+    med.history = out;
+    return changed;
   }
 
   function saveState(state) {
@@ -523,11 +624,15 @@
 
   // One-time migrations for older saved data
   (function migrate() {
+    let changed = false;
+    for (const med of state.meds) {
+      if (ensureMedHistory(med)) changed = true;
+    }
     const v = ensureVitalIds(state.vitals);
     const n = ensureNoteIds(state.notes);
     state.vitals = v.vitals;
     state.notes = n.notes;
-    if (v.changed || n.changed) saveState(state);
+    if (changed || v.changed || n.changed) saveState(state);
   })();
 
   // --------- TIME HELPERS ----------
@@ -683,8 +788,8 @@
 
       const tdName = document.createElement("td");
       tdName.innerHTML = `
-        <span class="cellMain">${escapeHtml(med.name)}</span>
-        ${med.usage ? `<span class="cellSub muted">${escapeHtml(med.usage)}</span>` : ""}
+        <span class="cellMain" data-act="showHistory" data-id="${med.id}" title="${escapeHtml(t("historyTitle"))}">${escapeHtml(med.name)}</span>
+        ${med.usage ? `<span class="cellSub muted" data-act="showHistory" data-id="${med.id}">${escapeHtml(med.usage)}</span>` : ""}
       `;
 
       const tdDose = document.createElement("td");
@@ -747,8 +852,11 @@
     if (!med) return;
 
     if (act === "takeNow") {
+      // Preserve existing history first, then add a new record.
+      ensureMedHistory(med);
       med.lastTakenISO = new Date().toISOString();
       med.lastTakenPieces = Number.isFinite(Number(med.dosePieces)) ? Number(med.dosePieces) : "";
+      med.history.push({ id: genId(), timeISO: med.lastTakenISO, pieces: med.lastTakenPieces });
       saveState(state);
       renderAll();
       return;
@@ -768,10 +876,82 @@
         return;
       }
       med.lastTakenISO = dt.toISOString();
+      ensureMedHistory(med);
+      if (med.history.length > 0) {
+        med.history
+          .sort((a, b) => b.timeISO.localeCompare(a.timeISO));
+        med.history[0].timeISO = med.lastTakenISO;
+        if (med.lastTakenPieces !== "" && med.lastTakenPieces !== null && med.lastTakenPieces !== undefined) {
+          med.history[0].pieces = Number(med.lastTakenPieces);
+        }
+      } else {
+        med.history.push({
+          id: genId(),
+          timeISO: med.lastTakenISO,
+          pieces: (med.lastTakenPieces !== "" && med.lastTakenPieces !== null && med.lastTakenPieces !== undefined)
+            ? Number(med.lastTakenPieces)
+            : (Number.isFinite(Number(med.dosePieces)) ? Number(med.dosePieces) : "")
+        });
+      }
       saveState(state);
       renderAll();
       return;
     }
+  });
+
+  // Double-click medicine name to show history
+  const historyDialog = document.getElementById("historyDialog");
+  const historySub = document.getElementById("historySub");
+  const historyTbody = document.querySelector("#historyTable tbody");
+  const historyEmpty = document.getElementById("historyEmpty");
+
+  function openHistory(med) {
+    ensureMedHistory(med);
+    historySub.textContent = med.name;
+    historyTbody.innerHTML = "";
+
+    const entries = (Array.isArray(med.history) ? med.history : [])
+      .slice()
+      .sort((a, b) => b.timeISO.localeCompare(a.timeISO));
+
+    if (entries.length === 0) {
+      historyEmpty.style.display = "block";
+    } else {
+      historyEmpty.style.display = "none";
+      for (const e of entries) {
+        const tr = document.createElement("tr");
+
+        const tdTime = document.createElement("td");
+        tdTime.className = "nowrap";
+        tdTime.textContent = msToPretty(isoToMs(e.timeISO));
+
+        const tdPieces = document.createElement("td");
+        const unit = med.doseUnit ? ` ${med.doseUnit}` : "";
+        tdPieces.textContent = (e.pieces === "" || e.pieces === null || e.pieces === undefined) ? "—" : `${e.pieces}${unit}`;
+
+        tr.appendChild(tdTime);
+        tr.appendChild(tdPieces);
+        historyTbody.appendChild(tr);
+      }
+    }
+
+    if (historyDialog && typeof historyDialog.showModal === "function") {
+      historyDialog.showModal();
+    }
+  }
+
+  medTbody.addEventListener("dblclick", (e) => {
+    const target = e.target;
+    const el = target instanceof Element ? target.closest("[data-act='showHistory']") : null;
+    if (!el) return;
+    const id = el.getAttribute("data-id");
+    const med = state.meds.find(m => m.id === id);
+    if (!med) return;
+    openHistory(med);
+  });
+
+  document.getElementById("historyCloseBtn").addEventListener("click", () => {
+    historyDialog.close();
   });
 
   medTbody.addEventListener("change", (e) => {
@@ -983,7 +1163,7 @@
   // --------- EXPORT / IMPORT / RESET ----------
   document.getElementById("resetAllBtn").addEventListener("click", () => {
     if (!confirm(t("resetConfirm"))) return;
-    state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:"", lastTakenPieces:""})), vitals: [], notes: [] };
+    state = { meds: DEFAULT_MEDS.map(m => ({...m, lastTakenISO:"", lastTakenPieces:"", history: []})), vitals: [], notes: [] };
     saveState(state);
     updateYearModes();
     vitalsTimeInput.dataset.auto = "1";
@@ -1022,13 +1202,16 @@
           ...m,
           dosePieces,
           lastTakenISO: saved.lastTakenISO || "",
-          lastTakenPieces: saved.lastTakenPieces ?? ""
+          lastTakenPieces: saved.lastTakenPieces ?? "",
+          history: Array.isArray(saved.history) ? saved.history : []
         };
       });
       const v = ensureVitalIds(Array.isArray(parsed.vitals) ? parsed.vitals : []);
       const n = ensureNoteIds(Array.isArray(parsed.notes) ? parsed.notes : []);
       state.vitals = v.vitals;
       state.notes = n.notes;
+      // Normalize med history after import
+      for (const med of state.meds) ensureMedHistory(med);
       saveState(state);
       updateYearModes();
       vitalsTimeInput.dataset.auto = "1";
