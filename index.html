@@ -124,7 +124,6 @@
             <tr>
               <th id="thMedicine">Medicine</th>
               <th class="nowrap eachTimeCol" id="thEachTime">Each time</th>
-              <th class="nowrap" id="thEvery">Every</th>
               <th class="nowrap" id="thNextDose">Next dose</th>
               <th class="right" id="thActions">Actions</th>
             </tr>
@@ -800,12 +799,12 @@
       tdDose.className = "eachTimeCol";
       {
         const pieces = Number.isFinite(Number(med.dosePieces)) && Number(med.dosePieces) > 0 ? Math.round(Number(med.dosePieces)) : "";
-        const unit = med.doseUnit ? ` ${med.doseUnit}` : "";
-        tdDose.innerHTML = pieces ? `<span class="mono">${escapeHtml(String(pieces))}</span><span class="muted">${escapeHtml(unit)}</span>` : "—";
+        const unit = med.doseUnit ? String(med.doseUnit) : "";
+        const interval = Number.isFinite(Number(med.intervalHours)) ? `${Number(med.intervalHours)}h` : "";
+        tdDose.innerHTML = pieces && interval
+          ? `<span class="mono">${escapeHtml(String(pieces))}${escapeHtml(unit)}/${escapeHtml(interval)}</span>`
+          : "—";
       }
-
-      const tdEvery = document.createElement("td");
-      tdEvery.innerHTML = `<span class="mono">${med.intervalHours}h</span>`;
 
       const tdNext = document.createElement("td");
       tdNext.className = `nowrap ${status.cls || ""}`;
@@ -822,7 +821,6 @@
 
       tr.appendChild(tdName);
       tr.appendChild(tdDose);
-      tr.appendChild(tdEvery);
       tr.appendChild(tdNext);
       tr.appendChild(tdActions);
 
