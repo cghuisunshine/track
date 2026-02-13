@@ -46,7 +46,9 @@
     button { cursor: pointer; }
     button.primary { font-weight: 650; }
     button.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; }
-    input.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; width: 70px; }
+    input.small { padding: 6px 10px; border-radius: 9px; font-size: 13px; width: 52px; }
+
+    .eachTimeCol { width: 90px; }
     input[type="number"] { width: 110px; }
     .dtInput { min-width: 210px; }
 
@@ -118,7 +120,7 @@
           <thead>
             <tr>
               <th id="thMedicine">Medicine</th>
-              <th class="nowrap" id="thEachTime">Each time</th>
+              <th class="nowrap eachTimeCol" id="thEachTime">Each time</th>
               <th class="nowrap" id="thEvery">Every</th>
               <th class="nowrap" id="thNextDose">Next dose</th>
               <th id="thStatus">Status</th>
@@ -793,8 +795,10 @@
       `;
 
       const tdDose = document.createElement("td");
+      tdDose.className = "eachTimeCol";
       tdDose.innerHTML = `
-        <div class="row">
+        <div>
+          <div class="row">
           <input
             class="small"
             type="number"
@@ -805,6 +809,7 @@
             data-id="${med.id}"
             aria-label="${escapeHtml(t("thEachTime"))}"
           />
+          </div>
           <span class="muted">${escapeHtml(med.doseUnit || "")}</span>
         </div>
       `;
